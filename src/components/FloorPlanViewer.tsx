@@ -44,31 +44,30 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
     loadFloorPlan();
   }, [floorNumber]);
 
-  if (loading) {
-    return <div>Loading floor plan... {progress}%</div>;
-  }
-
-  if (!metadata) {
-    return <div>Error loading floor plan</div>;
-  }
-
   return (
-    <svg
-      ref={svgRef}
-      width={metadata.dimensions.width}
-      height={metadata.dimensions.height}
-      viewBox={metadata.dimensions.viewBox}
-    >
-      {paths.map((path) => (
-        <path
-          key={path.id}
-          d={path.d}
-          transform={path.transform}
-          stroke="#000"
-          strokeWidth="0.1"
-          fill="none"
-        />
-      ))}
-    </svg>
+    <div>
+      {loading && <div>Loading floor plan...</div>}
+      {!loading && !metadata && <div>Error loading floor plan</div>}
+      {!loading && metadata && (
+        <svg
+          ref={svgRef}
+          width={metadata.dimensions.width}
+          height={metadata.dimensions.height}
+          viewBox={metadata.dimensions.viewBox}
+          style={{ maxWidth: '100%', height: 'auto' }}
+        >
+          {paths.map((path) => (
+            <path
+              key={path.id}
+              d={path.d}
+              transform={path.transform}
+              stroke="#000"
+              strokeWidth="0.1"
+              fill="none"
+            />
+          ))}
+        </svg>
+      )}
+    </div>
   );
 };
