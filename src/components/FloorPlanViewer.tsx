@@ -9,7 +9,7 @@ interface FloorPlanViewerProps {
 
 export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({ 
   floorNumber
-}) => {
+}): JSX.Element => {
   const [loading, setLoading] = useState(true);
   const [paths, setPaths] = useState<SimplifiedPath[]>([]);
   const [metadata, setMetadata] = useState<FloorPlanMetadata | null>(null);
