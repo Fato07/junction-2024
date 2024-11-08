@@ -31,10 +31,6 @@ class SVGPathExtractor extends Transform {
     return uniqueId;
   }
 
-  constructor(private callback: (path: SimplifiedPath) => void) {
-    super({ objectMode: true });
-  }
-
   _transform(chunk: any, encoding: string, callback: Function) {
     this.buffer += chunk.toString();
     
@@ -80,9 +76,13 @@ class SVGPathExtractor extends Transform {
   private determinePathType(pathElement: string): 'wall' | 'window' | 'door' | 'other' {
     // Extract the style attribute
     const styleMatch = pathElement.match(/style="([^"]*)"/);
-    if (!styleMatch) return 'other';
+    if (!styleMatch) {
+      console.debug('No style found for path:', pathElement);
+      return 'other';
+    }
     
     const style = styleMatch[1];
+    console.debug('Path style:', style);
     
     // Check for wall characteristics
     if (style.includes('stroke-width:0.1') && 

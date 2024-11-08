@@ -7,8 +7,9 @@ interface FloorPlanViewerProps {
 }
 
 export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({ 
-  floorNumber
+  floorNumber: initialFloor
 }) => {
+  const [currentFloor, setCurrentFloor] = useState(initialFloor);
   const [loading, setLoading] = useState(true);
   const [paths, setPaths] = useState<SimplifiedPath[]>([]);
   const [metadata, setMetadata] = useState<FloorPlanMetadata | null>(null);
@@ -16,18 +17,18 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
 
   useEffect(() => {
     const loadFloorPlan = async () => {
-      console.log('Starting to load floor plan:', floorNumber);
+      console.log('Starting to load floor plan:', currentFloor);
       setLoading(true);
 
       try {
-        const response = await fetch(`/api/floor-plan/${floorNumber}`);
+        const response = await fetch(`/api/floor-plan/${currentFloor}`);
         if (!response.ok) {
           throw new Error('Failed to fetch floor plan');
         }
 
         const data = await response.json();
         const filteredPaths = data.paths.filter((path: SimplifiedPath) => 
-          path.type === 'wall' && path.floor === floorNumber
+          path.type === 'wall' && path.floor === currentFloor
         );
         
         console.log('Metadata loaded:', data.metadata);
@@ -45,7 +46,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
     };
 
     loadFloorPlan();
-  }, [floorNumber]);
+  }, [currentFloor]);
 
   return (
     <div>
@@ -54,6 +55,15 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
       {!loading && metadata && (
         <>
           <div style={{ padding: '10px', fontSize: '12px' }}>
+            <select 
+              value={currentFloor} 
+              onChange={(e) => setCurrentFloor(parseInt(e.target.value))}
+              style={{ marginBottom: '10px' }}
+            >
+              {[1,2,3,4,5,6,7].map(floor => (
+                <option key={floor} value={floor}>Floor {floor}</option>
+              ))}
+            </select>
             <div>Dimensions: {metadata.dimensions.width} x {metadata.dimensions.height}</div>
             <div>Scale: {metadata.scale}</div>
             <div>Paths: {paths.length}</div>
@@ -90,7 +100,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
                       d={path.d}
                       transform={path.transform}
                       stroke="#000"
-                      strokeWidth={0.1}
+                      strokeWidth={0.5}
                       fill="none"
                       vectorEffect="non-scaling-stroke"
                     />
