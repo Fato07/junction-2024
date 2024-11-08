@@ -9,6 +9,19 @@ class SVGPathExtractor extends Transform {
   private pathCount = 0;
   private seenIds = new Set<string>();
 
+  private generateUniqueId(baseId: string): string {
+    let uniqueId = baseId;
+    let counter = 1;
+    
+    while (this.seenIds.has(uniqueId)) {
+      uniqueId = `${baseId}_${counter}`;
+      counter++;
+    }
+    
+    this.seenIds.add(uniqueId);
+    return uniqueId;
+  }
+
   constructor(private callback: (path: SimplifiedPath) => void) {
     super({ objectMode: true });
   }
@@ -33,12 +46,7 @@ class SVGPathExtractor extends Transform {
 
       // Ensure unique IDs
       if (id && d) {
-        // If ID already exists, create a new unique ID
-        while (this.seenIds.has(id)) {
-          id = `${id}_${Math.random().toString(36).substr(2, 9)}`;
-        }
-        this.seenIds.add(id);
-
+        id = this.generateUniqueId(id);
         const type = this.determinePathType(pathElement);
         
         this.pathCount++;
