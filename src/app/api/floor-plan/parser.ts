@@ -76,20 +76,68 @@ class SVGPathExtractor extends Transform {
   private determinePathType(pathElement: string): 'wall' | 'window' | 'door' | 'other' {
     // Extract the style attribute
     const styleMatch = pathElement.match(/style="([^"]*)"/);
-    if (!styleMatch) {
-      console.debug('No style found for path:', pathElement);
-      return 'other';
-    }
+    const classMatch = pathElement.match(/class="([^"]*)"/);
     
-    const style = styleMatch[1];
-    console.debug('Path style:', style);
-    
-    // Check for wall characteristics
-    if (style.includes('stroke-width:0.1') && 
-        style.includes('fill:none') && 
-        style.includes('stroke:#000000')) {
-      return 'wall';
+    // Debug logging
+    console.debug('Analyzing path:', {
+        style: styleMatch?.[1],
+        class: classMatch?.[1],
+        fullElement: pathElement
+    });
+
+    // If no style attribute, check for direct attributes
+    const strokeWidth = pathElement.match(/stroke-width="([^"]*)"/)?.[1];
+    const fill = pathElement.match(/fill="([^"]*)"/)?.[1];
+    const stroke = pathElement.match(/stroke="([^"]*)"/)?.[1];
+
+    // Common wall characteristics
+    const isWall = (style: string | undefined, directStrokeWidth?: string, directFill?: string, directStroke?: string): boolean => {
+        if (!style && !directStrokeWidth) return false;
+
+        // Check both style attribute and direct attributes
+        const hasValidStrokeWidth = (
+            (style?.includes('stroke-width:0.1') || style?.includes('stroke-width:0.2')) ||
+            (directStrokeWidth && (directStrokeWidth === '0.1' || directStrokeWidth === '0.2'))
+        );
+
+        const hasValidFill = (
+            style?.includes('fill:none') ||
+            directFill === 'none'
+        );
+
+        const hasValidStroke = (
+            style?.includes('stroke:#000') ||
+            style?.includes('stroke:#000000') ||
+            directStroke === '#000' ||
+            directStroke === '#000000' ||
+            directStroke === 'black'
+        );
+
+        // Additional wall indicators
+        const hasWallClass = classMatch?.[1]?.toLowerCase().includes('wall');
+        const hasWallId = pathElement.includes('wall') || pathElement.includes('Wall');
+
+        // Consider it a wall if it matches most wall characteristics
+        return (hasValidStrokeWidth || hasValidStroke) && 
+               (hasValidFill || hasWallClass || hasWallId);
+    };
+
+    if (styleMatch || strokeWidth || fill || stroke) {
+        const style = styleMatch?.[1];
+        if (isWall(style, strokeWidth, fill, stroke)) {
+            return 'wall';
+        }
     }
+
+    // If no clear wall characteristics are found, check for specific patterns
+    if (pathElement.includes('wall') || 
+        pathElement.includes('Wall') || 
+        (classMatch && classMatch[1].toLowerCase().includes('wall'))) {
+        return 'wall';
+    }
+
+    // Log paths that weren't identified as walls
+    console.debug('Path not identified as wall:', pathElement);
     
     return 'other';
   }
@@ -170,7 +218,7 @@ export async function streamParseFloorPlan(
       readStream
         .pipe(pathExtractor)
         .on('finish', () => {
-          resolve({
+          const result = {
             metadata: {
               floor: floorNumber,
               dimensions,
@@ -178,7 +226,17 @@ export async function streamParseFloorPlan(
               pathCount: pathExtractor.getPathCount(),
             },
             paths: collectedPaths
+          };
+
+          // Log summary of parsed paths
+          console.log('Floor plan parsing complete:', {
+            floor: floorNumber,
+            totalPaths: collectedPaths.length,
+            wallPaths: collectedPaths.filter(p => p.type === 'wall').length,
+            otherPaths: collectedPaths.filter(p => p.type === 'other').length,
           });
+
+          resolve(result);
         })
         .on('error', reject);
     });
