@@ -4,6 +4,7 @@ import { Transform } from 'stream';
 import path from 'path';
 import { NextResponse } from 'next/server';
 import { streamParseFloorPlan } from '../parser';
+import { logger } from '@/utils/logger';
 
 interface RouteParams {
   params: {
