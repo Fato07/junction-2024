@@ -15,7 +15,8 @@ class SVGPathExtractor extends Transform {
   _transform(chunk: any, encoding: string, callback: Function) {
     this.buffer += chunk.toString();
     
-    const pathRegex = /<path[^>]*>/g;
+    // More specific regex to match complete path elements
+    const pathRegex = /<path[^>]* d="[^"]*"[^>]*>/g;
     let match;
     
     while ((match = pathRegex.exec(this.buffer)) !== null) {
@@ -85,15 +86,36 @@ export async function streamParseFloorPlan(
       explicitArray: false,
     });
 
-    const headerStream = createReadStream(filePath, { end: 1000 });
-    let headerData = '';
+    // Read the entire file for header parsing
+    const fileContent = createReadStream(filePath);
+    let svgData = '';
 
-    headerStream.on('data', chunk => {
-      headerData += chunk;
+    fileContent.on('data', chunk => {
+      svgData += chunk;
     });
 
-    headerStream.on('end', () => {
-      parser.parseString(headerData, (err: any, result: any) => {
+    fileContent.on('end', () => {
+      // Find the SVG opening tag and extract attributes
+      const svgOpeningTag = svgData.match(/<svg[^>]*>/);
+      if (!svgOpeningTag) {
+        reject(new Error('Invalid SVG file: No opening svg tag found'));
+        return;
+      }
+
+      // Parse dimensions from the opening tag
+      const widthMatch = svgOpeningTag[0].match(/width="([^"]*)/);
+      const heightMatch = svgOpeningTag[0].match(/height="([^"]*)/);
+      const viewBoxMatch = svgOpeningTag[0].match(/viewBox="([^"]*)/);
+
+      dimensions = {
+        width: widthMatch ? parseFloat(widthMatch[1]) : 0,
+        height: heightMatch ? parseFloat(heightMatch[1]) : 0,
+        viewBox: viewBoxMatch ? viewBoxMatch[1] : '',
+      };
+
+      // Now process the paths
+      const pathExtractor = new SVGPathExtractor(pathCallback);
+      const readStream = createReadStream(filePath);
         if (err) {
           reject(err);
           return;

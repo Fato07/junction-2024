@@ -7,11 +7,10 @@ import { streamParseFloorPlan } from '../parser';
 
 export async function GET(
   request: Request,
-  { params }: { params: { floor: string } }
+  context: { params: { floor: string } }
 ) {
   try {
-    const floor = await params.floor;
-    const floorNumber = parseInt(floor);
+    const floorNumber = parseInt(context.params.floor);
     const paths: any[] = [];
 
     const metadata = await streamParseFloorPlan(
