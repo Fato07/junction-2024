@@ -77,68 +77,68 @@ class SVGPathExtractor extends Transform {
     // Extract all relevant attributes
     const styleMatch = pathElement.match(/style="([^"]*)"/);
     const classMatch = pathElement.match(/class="([^"]*)"/);
-    
-    // Extract path data to analyze the shape
     const dMatch = pathElement.match(/d="([^"]*)"/);
     const pathData = dMatch?.[1];
     
-    // If no style or path data, it's not a wall
-    if (!styleMatch && !pathData) return 'other';
+    if (!styleMatch || !pathData) return 'other';
     
-    const style = styleMatch?.[1] || '';
-    
-    // Check for wall-like characteristics in the style
+    const style = styleMatch[1];
+
+    // Function to calculate path length (approximate)
+    const calculatePathLength = (d: string): number => {
+        const coordinates = d.match(/-?\d+\.?\d*/g);
+        if (!coordinates) return 0;
+        
+        let length = 0;
+        for (let i = 0; i < coordinates.length - 2; i += 2) {
+            const x1 = parseFloat(coordinates[i]);
+            const y1 = parseFloat(coordinates[i + 1]);
+            const x2 = parseFloat(coordinates[i + 2]);
+            const y2 = parseFloat(coordinates[i + 3]);
+            length += Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+        }
+        return length;
+    };
+
+    // More specific wall characteristics
     const hasWallStyle = (
         style.includes('stroke:#000000') &&
         style.includes('stroke-width:0.1') &&
         style.includes('fill:none') &&
-        style.includes('stroke-opacity:1')
+        !style.includes('stroke-dasharray') // Solid lines only
     );
 
-    // Check path data characteristics
-    const isLongEnoughPath = pathData && (
-        pathData.length > 10 || // Arbitrary minimum length
-        pathData.includes('L') || // Has line segments
-        pathData.includes('H') || // Has horizontal lines
-        pathData.includes('V')    // Has vertical lines
+    const pathLength = calculatePathLength(pathData);
+    const isSignificantPath = pathLength > 5; // Adjust threshold as needed
+
+    // Check if the path is mostly straight
+    const isStraightPath = (
+        pathData.includes('H') || // Horizontal line
+        pathData.includes('V') || // Vertical line
+        pathData.split('L').length > 1 || // Multiple line segments
+        pathData.split('M').length > 1    // Multiple move commands
     );
 
-    // Check transform matrix for scaling
-    const transformMatch = pathElement.match(/matrix\(([\d.-]+,?)+\)/);
-    const hasValidTransform = transformMatch && transformMatch[0].includes('3.7795333');
-
-    // Additional checks for specific wall patterns
-    const hasWallIndicators = (
-        pathElement.includes('wall') ||
-        pathElement.includes('Wall') ||
-        (classMatch && classMatch[1]?.toLowerCase().includes('wall')) ||
-        style.includes('stroke-linecap:round') ||
-        style.includes('stroke-linejoin:round') ||
-        style.includes('stroke-miterlimit:10')
-    );
-
-    // Score-based system for wall detection
     let wallScore = 0;
     if (hasWallStyle) wallScore += 2;
-    if (isLongEnoughPath) wallScore += 1;
-    if (hasValidTransform) wallScore += 1;
-    if (hasWallIndicators) wallScore += 1;
-
-    // Debug logging for borderline cases
+    if (isSignificantPath) wallScore += 2;
+    if (isStraightPath) wallScore += 1;
+    
+    // Debug logging with more details
     if (wallScore > 0) {
-        console.debug('Wall detection score:', {
-            path: pathData?.substring(0, 50) + '...',
+        console.debug('Wall detection analysis:', {
+            path: pathData,
+            pathLength,
             score: wallScore,
-            style: style.substring(0, 50) + '...',
+            style,
             hasWallStyle,
-            isLongEnoughPath,
-            hasValidTransform,
-            hasWallIndicators
+            isSignificantPath,
+            isStraightPath
         });
     }
 
-    // Consider it a wall if it scores high enough
-    return wallScore >= 3 ? 'wall' : 'other';
+    // Higher threshold for wall detection
+    return wallScore >= 4 ? 'wall' : 'other';
   }
 
   getPathCount(): number {
