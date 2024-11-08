@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
 import { SimplifiedPath, FloorPlanMetadata } from '../types/floorPlan';
+import styles from './FloorPlanViewer.module.css';
 
 interface FloorPlanViewerProps {
   floorNumber: number;
@@ -50,20 +51,12 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
   }, [floorNumber]);
 
   return (
-    <div className="floor-plan-container">
+    <div className={styles.floorPlanContainer}>
       {loading && <div>Loading floor plan...</div>}
       {!loading && !metadata && <div>Error loading floor plan</div>}
       {!loading && metadata && (
-        <div className="floor-plan-content">
-          <div className="floor-plan-controls" style={{ 
-            padding: '10px', 
-            fontSize: '12px',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            zIndex: 1,
-            backgroundColor: 'rgba(255,255,255,0.8)'
-          }}>
+        <div className={styles.floorPlanContent}>
+          <div className={styles.floorPlanControls}>
             <div>Dimensions: {metadata.dimensions.width} x {metadata.dimensions.height}</div>
             <div>Scale: {metadata.scale}</div>
             <div>Paths: {paths.length}</div>
@@ -71,14 +64,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
             <button onClick={handleZoomIn}>Zoom In</button>
             <button onClick={handleZoomOut}>Zoom Out</button>
           </div>
-          <div className="floor-plan-svg-container" style={{ 
-            width: '100%',
-            height: '80vh',
-            border: '1px solid #ccc',
-            overflow: 'hidden',
-            backgroundColor: '#f5f5f5',
-            position: 'relative'
-          }}>
+          <div className={styles.floorPlanSvgContainer}>
             <svg
               ref={svgRef}
               width="100%"
