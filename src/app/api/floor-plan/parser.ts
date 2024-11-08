@@ -38,17 +38,6 @@ class OptimizedSVGPathExtractor extends Transform {
     this.startTime = Date.now();
   }
 
-  constructor(
-    private pathCallback: (paths: SimplifiedPath[]) => void,
-    private progressCallback?: (progress: number) => void,
-    floorNumber: number,
-    totalBytes: number
-  ) {
-    super({ objectMode: true });
-    this.floorNumber = floorNumber;
-    this.totalBytes = totalBytes;
-  }
-
   private processBatch() {
     if (this.batch.length > 0) {
       this.pathCallback(this.batch);
