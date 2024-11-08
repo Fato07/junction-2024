@@ -12,7 +12,11 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
   const [loading, setLoading] = useState(true);
   const [paths, setPaths] = useState<SimplifiedPath[]>([]);
   const [metadata, setMetadata] = useState<FloorPlanMetadata | null>(null);
+  const [zoom, setZoom] = useState(1);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.2, 5));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.2, 0.1));
 
   useEffect(() => {
     const loadFloorPlan = async () => {
@@ -51,46 +55,59 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
       {!loading && !metadata && <div>Error loading floor plan</div>}
       {!loading && metadata && (
         <div className="floor-plan-content">
-          <div className="floor-plan-info" style={{ padding: '10px', fontSize: '12px' }}>
+          <div className="floor-plan-controls" style={{ 
+            padding: '10px', 
+            fontSize: '12px',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            zIndex: 1,
+            backgroundColor: 'rgba(255,255,255,0.8)'
+          }}>
             <div>Dimensions: {metadata.dimensions.width} x {metadata.dimensions.height}</div>
             <div>Scale: {metadata.scale}</div>
             <div>Paths: {paths.length}</div>
+            <div>Zoom: {(zoom * 100).toFixed(0)}%</div>
+            <button onClick={handleZoomIn}>Zoom In</button>
+            <button onClick={handleZoomOut}>Zoom Out</button>
           </div>
           <div className="floor-plan-svg-container" style={{ 
-          width: '100%',
-          height: '90vh',
-          border: '1px solid #ccc',
-          overflow: 'auto',
-          backgroundColor: '#f5f5f5',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}>
-          <svg
-            ref={svgRef}
-            width="100%"
-            height="100%"
-            viewBox={metadata.dimensions.viewBox}
-            style={{ 
-              width: '100%',
-              height: '100%',
-              maxWidth: '100%',
-              maxHeight: '100%',
-              border: '1px solid red'
-            }}
-            preserveAspectRatio="xMidYMid meet"
-          >
-          <g transform={`scale(${metadata.scale})`}>
-            <g transform="translate(0.05, 0.05)">
+            width: '100%',
+            height: '80vh',
+            border: '1px solid #ccc',
+            overflow: 'hidden',
+            backgroundColor: '#f5f5f5',
+            position: 'relative'
+          }}>
+            <svg
+              ref={svgRef}
+              width="100%"
+              height="100%"
+              viewBox={`0 0 ${metadata.dimensions.width} ${metadata.dimensions.height}`}
+              style={{ 
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: `translate(-50%, -50%) scale(${zoom})`,
+                maxWidth: '95%',
+                maxHeight: '95%'
+              }}
+              preserveAspectRatio="xMidYMid contain"
+            >
+              <g transform={`scale(${metadata.scale / 10})`}>
               {paths.map((path) => (
                 <path
                   key={path.id}
                   d={path.d}
                   transform={path.transform}
                   stroke="#000"
-                  strokeWidth={0.1}
+                  strokeWidth={0.05}
                   fill="none"
                   vectorEffect="non-scaling-stroke"
+                  style={{
+                    strokeLinecap: 'round',
+                    strokeLinejoin: 'round'
+                  }}
                 />
               ))}
             </g>
