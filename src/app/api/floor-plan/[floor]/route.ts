@@ -1,10 +1,8 @@
-import { createReadStream, existsSync } from 'fs';
-import { Parser } from 'xml2js';
-import { Transform } from 'stream';
+import { existsSync } from 'fs';
 import path from 'path';
 import { NextResponse } from 'next/server';
-import { streamParseFloorPlan } from '../parser';
 import { logger } from '@/utils/logger';
+import { parseSVGFloorPlan } from '@/utils/svgParser';
 
 interface RouteParams {
   params: {
@@ -20,21 +18,40 @@ export async function GET(
   
   try {
     const floorNumber = parseInt(floor);
-    const paths: any[] = [];
-
-    const { metadata, paths: parsedPaths } = await streamParseFloorPlan(
-      floorNumber,
-      (path) => {
-        // Optional: You can still use the callback for progress updates
-      }
+    
+    // Check if file exists
+    const filePath = path.join(
+      process.cwd(),
+      'public',
+      'assets',
+      'floor_plans',
+      `floor_${floorNumber}_small.svg`
     );
+    
+    if (!existsSync(filePath)) {
+      return NextResponse.json(
+        { error: 'Floor plan not found' },
+        { status: 404 }
+      );
+    }
 
-    // Filter paths to only include those matching the requested floor
-    const floorPaths = parsedPaths.filter(path => path.floor === floorNumber);
+    // Parse the SVG file
+    const paths = await parseSVGFloorPlan(floorNumber, {
+      maxPaths: 10000,
+      includeTransforms: true
+    });
+
+    // Basic metadata
+    const metadata = {
+      floor: floorNumber,
+      pathCount: paths.length,
+      wallCount: paths.filter(p => p.type === 'wall').length,
+      otherCount: paths.filter(p => p.type === 'other').length
+    };
 
     return NextResponse.json({ 
       metadata,
-      paths: floorPaths
+      paths
     });
   } catch (error) {
     logger.error('Error processing floor plan:', { 
