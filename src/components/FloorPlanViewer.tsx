@@ -30,6 +30,8 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
         
         console.log('Metadata loaded:', data.metadata);
         console.log('Total paths collected:', filteredPaths.length);
+        console.log('Sample path:', filteredPaths[0]);
+        console.log('ViewBox:', data.metadata.dimensions.viewBox);
         
         setPaths(filteredPaths);
         setMetadata(data.metadata);
@@ -48,29 +50,41 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
       {loading && <div>Loading floor plan...</div>}
       {!loading && !metadata && <div>Error loading floor plan</div>}
       {!loading && metadata && (
-        <svg
-          ref={svgRef}
-          width="100%"
-          height="100%"
-          viewBox={metadata.dimensions.viewBox}
-          style={{ 
-            maxWidth: `${metadata.dimensions.width}px`,
-            maxHeight: `${metadata.dimensions.height}px`,
-            width: '100%',
-            height: 'auto'
-          }}
-        >
-          {paths.map((path) => (
-            <path
-              key={path.id}
-              d={path.d}
-              transform={path.transform}
-              stroke="#000"
-              strokeWidth="0.1"
-              fill="none"
-            />
-          ))}
+        <div style={{ 
+          width: '100%',
+          height: '100vh',
+          border: '1px solid #ccc',
+          overflow: 'auto'
+        }}>
+          <svg
+            ref={svgRef}
+            width="100%"
+            height="100%"
+            viewBox={metadata.dimensions.viewBox}
+            style={{ 
+              width: '100%',
+              height: '100%',
+              maxWidth: '100%',
+              maxHeight: '100%',
+              border: '1px solid red'
+            }}
+            preserveAspectRatio="xMidYMid meet"
+          >
+          <g transform={`scale(${1/metadata.scale})`}>
+            {paths.map((path) => (
+              <path
+                key={path.id}
+                d={path.d}
+                transform={path.transform}
+                stroke="#000"
+                strokeWidth="0.5"
+                fill="none"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+          </g>
         </svg>
+        </div>
       )}
     </div>
   );
