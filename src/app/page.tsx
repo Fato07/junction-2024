@@ -8,9 +8,6 @@ export default function Home() {
         <h1>Floor Plan Viewer</h1>
         <FloorPlanViewer 
           floorNumber={1}
-          onLoad={(metadata) => {
-            console.log('Floor plan loaded:', metadata);
-          }}
         />
       </main>
     </div>

@@ -4,12 +4,10 @@ import { SimplifiedPath, FloorPlanMetadata } from '../types/floorPlan';
 
 interface FloorPlanViewerProps {
   floorNumber: number;
-  onLoad?: (metadata: FloorPlanMetadata) => void;
 }
 
 export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({ 
-  floorNumber,
-  onLoad 
+  floorNumber
 }) => {
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
@@ -36,7 +34,6 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
         
         setPaths(filteredPaths);
         setMetadata(data.metadata);
-        onLoad?.(data.metadata);
       } catch (error) {
         console.error('Error loading floor plan:', error);
       } finally {
