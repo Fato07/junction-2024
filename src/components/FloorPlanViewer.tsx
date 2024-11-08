@@ -23,28 +23,22 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
     const loadFloorPlan = async () => {
       console.log('Starting to load floor plan:', floorNumber);
       setLoading(true);
-      const collectedPaths: SimplifiedPath[] = [];
 
       try {
-        const meta = await loadFloorPlanPaths(floorNumber, {
-          onPath: (path) => {
-            collectedPaths.push(path);
-            if (collectedPaths.length <= 5) {
-              console.log('Sample path loaded:', path.id);
-            }
-          },
-          onProgress: (progress) => {
-            console.log('Loading progress:', progress);
-            setProgress(progress);
-          },
-          filter: (path) => path.type === 'wall' // Example filter
-        });
+        const response = await fetch(`/api/floor-plan/${floorNumber}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch floor plan');
+        }
 
-        console.log('Metadata loaded:', meta);
-        console.log('Total paths collected:', collectedPaths.length);
-        setPaths(collectedPaths);
-        setMetadata(meta);
-        onLoad?.(meta);
+        const data = await response.json();
+        const filteredPaths = data.paths.filter((path: SimplifiedPath) => path.type === 'wall');
+        
+        console.log('Metadata loaded:', data.metadata);
+        console.log('Total paths collected:', filteredPaths.length);
+        
+        setPaths(filteredPaths);
+        setMetadata(data.metadata);
+        onLoad?.(data.metadata);
       } catch (error) {
         console.error('Error loading floor plan:', error);
       } finally {
