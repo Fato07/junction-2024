@@ -7,6 +7,7 @@ import { SimplifiedPath, FloorPlanMetadata } from '@/types/floorPlan';
 class SVGPathExtractor extends Transform {
   private buffer = '';
   private pathCount = 0;
+  private seenIds = new Set<string>();
 
   constructor(private callback: (path: SimplifiedPath) => void) {
     super({ objectMode: true });
@@ -15,20 +16,31 @@ class SVGPathExtractor extends Transform {
   _transform(chunk: any, encoding: string, callback: Function) {
     this.buffer += chunk.toString();
     
-    // More specific regex to match complete path elements
     const pathRegex = /<path[^>]* d="[^"]*"[^>]*>/g;
     let match;
     
     while ((match = pathRegex.exec(this.buffer)) !== null) {
       const pathElement = match[0];
       
-      const id = (pathElement.match(/id="([^"]*)"/) || [])[1];
+      let id = (pathElement.match(/id="([^"]*)"/) || [])[1];
       const d = (pathElement.match(/d="([^"]*)"/) || [])[1];
       const transform = (pathElement.match(/transform="([^"]*)"/) || [])[1];
       
-      const type = this.determinePathType(pathElement);
+      // Validate path data
+      if (!d || !d.trim().match(/^[Mm]/)) {
+        continue; // Skip invalid paths
+      }
 
+      // Ensure unique IDs
       if (id && d) {
+        // If ID already exists, create a new unique ID
+        while (this.seenIds.has(id)) {
+          id = `${id}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+        this.seenIds.add(id);
+
+        const type = this.determinePathType(pathElement);
+        
         this.pathCount++;
         this.callback({
           id,
