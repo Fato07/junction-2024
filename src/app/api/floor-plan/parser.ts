@@ -74,7 +74,6 @@ class SVGPathExtractor extends Transform {
   }
 
   private determinePathType(pathElement: string): 'wall' | 'window' | 'door' | 'other' {
-    // Extract all relevant attributes
     const styleMatch = pathElement.match(/style="([^"]*)"/);
     const classMatch = pathElement.match(/class="([^"]*)"/);
     const dMatch = pathElement.match(/d="([^"]*)"/);
@@ -84,7 +83,7 @@ class SVGPathExtractor extends Transform {
     
     const style = styleMatch[1];
 
-    // Function to calculate path length (approximate)
+    // Function to calculate path length considering scale
     const calculatePathLength = (d: string): number => {
         const coordinates = d.match(/-?\d+\.?\d*/g);
         if (!coordinates) return 0;
@@ -97,48 +96,53 @@ class SVGPathExtractor extends Transform {
             const y2 = parseFloat(coordinates[i + 3]);
             length += Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
         }
-        return length;
+        return length * 3.7795333; // Apply scale factor
     };
 
-    // More specific wall characteristics
+    // More lenient wall style detection
     const hasWallStyle = (
         style.includes('stroke:#000000') &&
         style.includes('stroke-width:0.1') &&
-        style.includes('fill:none') &&
-        !style.includes('stroke-dasharray') // Solid lines only
+        style.includes('fill:none')
     );
 
+    // Calculate path characteristics
     const pathLength = calculatePathLength(pathData);
-    const isSignificantPath = pathLength > 5; // Adjust threshold as needed
+    const isSignificantPath = pathLength > 10; // Increased threshold after scaling
 
-    // Check if the path is mostly straight
-    const isStraightPath = (
-        pathData.includes('H') || // Horizontal line
-        pathData.includes('V') || // Vertical line
-        pathData.split('L').length > 1 || // Multiple line segments
-        pathData.split('M').length > 1    // Multiple move commands
-    );
+    // Analyze path commands for straightness
+    const commands = pathData.match(/[A-Za-z][^A-Za-z]*/g) || [];
+    const isStraightPath = commands.some(cmd => {
+        const type = cmd[0];
+        return type === 'H' || type === 'V' || type === 'L';
+    });
+
+    // Check for consecutive line segments
+    const hasConsecutiveLines = commands.length > 1;
 
     let wallScore = 0;
     if (hasWallStyle) wallScore += 2;
     if (isSignificantPath) wallScore += 2;
     if (isStraightPath) wallScore += 1;
+    if (hasConsecutiveLines) wallScore += 1;
     
     // Debug logging with more details
     if (wallScore > 0) {
         console.debug('Wall detection analysis:', {
             path: pathData,
             pathLength,
+            commands: commands.map(cmd => cmd[0]).join(','),
             score: wallScore,
-            style,
+            style: style.substring(0, 50) + '...',
             hasWallStyle,
             isSignificantPath,
-            isStraightPath
+            isStraightPath,
+            hasConsecutiveLines
         });
     }
 
-    // Higher threshold for wall detection
-    return wallScore >= 4 ? 'wall' : 'other';
+    // Adjusted threshold
+    return wallScore >= 3 ? 'wall' : 'other';
   }
 
   getPathCount(): number {
