@@ -46,17 +46,17 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
   }, [floorNumber]);
 
   return (
-    <div>
+    <div className="floor-plan-container">
       {loading && <div>Loading floor plan...</div>}
       {!loading && !metadata && <div>Error loading floor plan</div>}
       {!loading && metadata && (
-        <>
-          <div style={{ padding: '10px', fontSize: '12px' }}>
+        <div className="floor-plan-content">
+          <div className="floor-plan-info" style={{ padding: '10px', fontSize: '12px' }}>
             <div>Dimensions: {metadata.dimensions.width} x {metadata.dimensions.height}</div>
             <div>Scale: {metadata.scale}</div>
             <div>Paths: {paths.length}</div>
           </div>
-        <div style={{ 
+          <div className="floor-plan-svg-container" style={{ 
           width: '100%',
           height: '90vh',
           border: '1px solid #ccc',
@@ -96,6 +96,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
             </g>
           </g>
         </svg>
+          </div>
         </div>
       )}
     </div>
