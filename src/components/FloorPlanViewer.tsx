@@ -26,7 +26,9 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
         }
 
         const data = await response.json();
-        const filteredPaths = data.paths.filter((path: SimplifiedPath) => path.type === 'wall');
+        const filteredPaths = data.paths.filter((path: SimplifiedPath) => 
+          path.type === 'wall' && path.floor === floorNumber
+        );
         
         console.log('Metadata loaded:', data.metadata);
         console.log('Total paths collected:', filteredPaths.length);

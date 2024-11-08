@@ -3,6 +3,7 @@ export interface SimplifiedPath {
   d: string;
   type: 'wall' | 'window' | 'door' | 'other';
   transform?: string;
+  floor: number;
 }
 
 export interface FloorPlanMetadata {

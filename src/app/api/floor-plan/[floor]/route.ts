@@ -21,14 +21,20 @@ export async function GET(
     const floorNumber = parseInt(floor);
     const paths: any[] = [];
 
-    const metadata = await streamParseFloorPlan(
+    const { metadata, paths: parsedPaths } = await streamParseFloorPlan(
       floorNumber,
       (path) => {
-        paths.push(path);
+        // Optional: You can still use the callback for progress updates
       }
     );
 
-    return NextResponse.json({ metadata, paths });
+    // Filter paths to only include those matching the requested floor
+    const floorPaths = parsedPaths.filter(path => path.floor === floorNumber);
+
+    return NextResponse.json({ 
+      metadata,
+      paths: floorPaths
+    });
   } catch (error) {
     console.error('Error processing floor plan:', error);
     return NextResponse.json(

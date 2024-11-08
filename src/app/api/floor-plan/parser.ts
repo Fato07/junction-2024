@@ -54,7 +54,8 @@ class SVGPathExtractor extends Transform {
           id,
           d,
           type,
-          transform
+          transform,
+          floor: this.floorNumber
         });
       }
     }
@@ -89,11 +90,16 @@ class SVGPathExtractor extends Transform {
   }
 }
 
+export interface ParsedFloorPlan {
+  metadata: FloorPlanMetadata;
+  paths: SimplifiedPath[];
+}
+
 export async function streamParseFloorPlan(
   floorNumber: number,
   pathCallback: (path: SimplifiedPath) => void,
   progressCallback?: (progress: number) => void
-): Promise<FloorPlanMetadata> {
+): Promise<ParsedFloorPlan> {
   return new Promise((resolve, reject) => {
     const filePath = path.join(process.cwd(), 'public', 'assets', 'floor_plans', `floor_${floorNumber}.svg`);
     console.log('Attempting to read SVG from:', filePath);
@@ -144,17 +150,25 @@ export async function streamParseFloorPlan(
       };
 
       // Now process the paths
-      const pathExtractor = new SVGPathExtractor(pathCallback);
+      const collectedPaths: SimplifiedPath[] = [];
+      const pathExtractor = new SVGPathExtractor((path) => {
+        collectedPaths.push(path);
+        pathCallback(path);
+      }, floorNumber);
+
       const readStream = createReadStream(filePath);
 
       readStream
         .pipe(pathExtractor)
         .on('finish', () => {
           resolve({
-            floor: floorNumber,
-            dimensions,
-            scale,
-            pathCount: pathExtractor.getPathCount(),
+            metadata: {
+              floor: floorNumber,
+              dimensions,
+              scale,
+              pathCount: pathExtractor.getPathCount(),
+            },
+            paths: collectedPaths
           });
         })
         .on('error', reject);
