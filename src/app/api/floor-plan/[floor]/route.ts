@@ -5,9 +5,15 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 import { streamParseFloorPlan } from '../parser';
 
+interface RouteParams {
+  params: {
+    floor: string;
+  };
+}
+
 export async function GET(
   request: Request,
-  context: { params: { floor: string } }
+  { params }: RouteParams
 ) {
   try {
     const floorNumber = parseInt(context.params.floor);
