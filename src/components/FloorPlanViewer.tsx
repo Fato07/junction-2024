@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState, useRef } from 'react';
 import { loadFloorPlanPaths } from '../utils/floorPlanParser';
 import { SimplifiedPath, FloorPlanMetadata } from '../types/floorPlan';
