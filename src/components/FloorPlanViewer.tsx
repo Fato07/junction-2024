@@ -42,7 +42,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
     };
 
     loadFloorPlan();
-  }, [floorNumber, onload]);
+  }, [floorNumber]);
 
   if (loading) {
     return <div>Loading floor plan... {progress}%</div>;

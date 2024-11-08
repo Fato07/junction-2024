@@ -10,7 +10,8 @@ export async function GET(
   { params }: { params: { floor: string } }
 ) {
   try {
-    const floorNumber = parseInt(params.floor);
+    const floor = await params.floor;
+    const floorNumber = parseInt(floor);
     const paths: any[] = [];
 
     const metadata = await streamParseFloorPlan(
