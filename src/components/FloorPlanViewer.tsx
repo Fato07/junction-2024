@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
 import { SimplifiedPath, FloorPlanMetadata } from '../types/floorPlan';
-import styles from './FloorPlanViewer.module.css';
 
 interface FloorPlanViewerProps {
   floorNumber: number;
@@ -9,15 +8,11 @@ interface FloorPlanViewerProps {
 
 export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({ 
   floorNumber
-}): JSX.Element => {
+}) => {
   const [loading, setLoading] = useState(true);
   const [paths, setPaths] = useState<SimplifiedPath[]>([]);
   const [metadata, setMetadata] = useState<FloorPlanMetadata | null>(null);
-  const [zoom, setZoom] = useState(1);
   const svgRef = useRef<SVGSVGElement>(null);
-
-  const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.2, 5));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.2, 0.1));
 
   useEffect(() => {
     const loadFloorPlan = async () => {
@@ -51,57 +46,59 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
   }, [floorNumber]);
 
   return (
-    <div className={styles.floorPlanContainer}>
+    <div>
       {loading && <div>Loading floor plan...</div>}
       {!loading && !metadata && <div>Error loading floor plan</div>}
       {!loading && metadata && (
-        <div className={styles.floorPlanContent}>
-          <div className={styles.floorPlanControls}>
+        <>
+          <div style={{ padding: '10px', fontSize: '12px' }}>
             <div>Dimensions: {metadata.dimensions.width} x {metadata.dimensions.height}</div>
             <div>Scale: {metadata.scale}</div>
             <div>Paths: {paths.length}</div>
-            <div>Zoom: {(zoom * 100).toFixed(0)}%</div>
-            <button onClick={handleZoomIn}>Zoom In</button>
-            <button onClick={handleZoomOut}>Zoom Out</button>
           </div>
-          <div className={styles.floorPlanSvgContainer}>
+          <div style={{ 
+            width: '100%',
+            height: '90vh',
+            border: '1px solid #ccc',
+            overflow: 'auto',
+            backgroundColor: '#f5f5f5',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
             <svg
               ref={svgRef}
               width="100%"
               height="100%"
-              viewBox={`0 0 ${metadata.dimensions.width} ${metadata.dimensions.height}`}
+              viewBox={metadata.dimensions.viewBox}
               style={{ 
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: `translate(-50%, -50%) scale(${zoom})`,
-                maxWidth: '95%',
-                maxHeight: '95%'
+                width: '100%',
+                height: '100%',
+                maxWidth: '100%',
+                maxHeight: '100%',
+                border: '1px solid red'
               }}
-              preserveAspectRatio="xMidYMid contain"
+              preserveAspectRatio="xMidYMid meet"
             >
-              <g transform={`scale(${metadata.scale / 10})`}>
-              {paths.map((path) => (
-                <path
-                  key={path.id}
-                  d={path.d}
-                  transform={path.transform}
-                  stroke="#000"
-                  strokeWidth={0.05}
-                  fill="none"
-                  vectorEffect="non-scaling-stroke"
-                  style={{
-                    strokeLinecap: 'round',
-                    strokeLinejoin: 'round'
-                  }}
-                />
-              ))}
-            </g>
-          </g>
-        </svg>
+              <g transform={`scale(${metadata.scale})`}>
+                <g transform="translate(0.05, 0.05)">
+                  {paths.map((path) => (
+                    <path
+                      key={path.id}
+                      d={path.d}
+                      transform={path.transform}
+                      stroke="#000"
+                      strokeWidth={0.1}
+                      fill="none"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ))}
+                </g>
+              </g>
+            </svg>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
-};
+}
