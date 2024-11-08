@@ -50,11 +50,21 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
       {loading && <div>Loading floor plan...</div>}
       {!loading && !metadata && <div>Error loading floor plan</div>}
       {!loading && metadata && (
+        <>
+          <div style={{ padding: '10px', fontSize: '12px' }}>
+            <div>Dimensions: {metadata.dimensions.width} x {metadata.dimensions.height}</div>
+            <div>Scale: {metadata.scale}</div>
+            <div>Paths: {paths.length}</div>
+          </div>
         <div style={{ 
           width: '100%',
-          height: '100vh',
+          height: '90vh',
           border: '1px solid #ccc',
-          overflow: 'auto'
+          overflow: 'auto',
+          backgroundColor: '#f5f5f5',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center'
         }}>
           <svg
             ref={svgRef}
@@ -70,18 +80,20 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
             }}
             preserveAspectRatio="xMidYMid meet"
           >
-          <g transform={`scale(${1/metadata.scale})`}>
-            {paths.map((path) => (
-              <path
-                key={path.id}
-                d={path.d}
-                transform={path.transform}
-                stroke="#000"
-                strokeWidth="0.5"
-                fill="none"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
+          <g transform={`scale(${metadata.scale})`}>
+            <g transform="translate(0.05, 0.05)">
+              {paths.map((path) => (
+                <path
+                  key={path.id}
+                  d={path.d}
+                  transform={path.transform}
+                  stroke="#000"
+                  strokeWidth={0.1}
+                  fill="none"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+            </g>
           </g>
         </svg>
         </div>
