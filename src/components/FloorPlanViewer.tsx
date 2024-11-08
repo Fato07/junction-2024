@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
 import { SimplifiedPath, FloorPlanMetadata } from '../types/floorPlan';
+import styles from './FloorPlanViewer.module.css';
 
 interface FloorPlanViewerProps {
   floorNumber: number;
@@ -109,18 +110,17 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
               </defs>
               <rect width="100%" height="100%" fill="url(#grid)" />
               <g transform={`translate(${position.x} ${position.y}) scale(${zoom * metadata.scale})`}>
-                  {paths.map((path) => (
-                    <path
-                      key={path.id}
-                      d={path.d}
-                      transform={path.transform}
-                      stroke="#000"
-                      strokeWidth={0.5}
-                      fill="none"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  ))}
-                </g>
+                {paths.map((path) => (
+                  <path
+                    key={path.id}
+                    d={path.d}
+                    transform={path.transform}
+                    stroke="#000"
+                    strokeWidth={0.5}
+                    fill="none"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
               </g>
             </svg>
           </div>
