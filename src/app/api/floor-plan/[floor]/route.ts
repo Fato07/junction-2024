@@ -15,9 +15,9 @@ export async function GET(
   request: Request,
   { params }: RouteParams
 ) {
+  const { floor } = await params;
+  
   try {
-    // Ensure params is properly awaited
-    const { floor } = params;
     const floorNumber = parseInt(floor);
     const paths: any[] = [];
 
