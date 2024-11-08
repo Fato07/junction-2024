@@ -9,14 +9,72 @@ interface SVGParserOptions {
   includeTransforms?: boolean;
 }
 
+interface PathBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+function getPathBounds(d: string): PathBounds | null {
+  const numbers = d.match(/-?\d+\.?\d*/g);
+  if (!numbers) return null;
+
+  const coords = numbers.map(Number);
+  if (coords.length < 2) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  // Process coordinates in pairs
+  for (let i = 0; i < coords.length - 1; i += 2) {
+    const x = coords[i];
+    const y = coords[i + 1];
+    
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+
+  return { minX, minY, maxX, maxY };
+}
+
+function isPathContained(bounds1: PathBounds, bounds2: PathBounds): boolean {
+  const margin = 1; // Small margin to account for floating point errors
+  return (
+    bounds1.minX >= bounds2.minX - margin &&
+    bounds1.minY >= bounds2.minY - margin &&
+    bounds1.maxX <= bounds2.maxX + margin &&
+    bounds1.maxY <= bounds2.maxY + margin
+  );
+}
+
+interface PathKey {
+  d: string;
+  style: string;
+  transform?: string;
+}
+
+function createPathKey(path: PathKey): string {
+  return `${path.d}|${path.style}|${path.transform || ''}`;
+}
+
 export async function parseSVGFloorPlan(
   floorNumber: number,
   options: SVGParserOptions = {}
 ): Promise<SimplifiedPath[]> {
   const {
-    maxPaths = 10000,
-    includeTransforms = true
+    maxPaths = 50000,
+    includeTransforms = true,
+    minPathLength = 10, // Minimum path length to filter out tiny elements
+    deduplicatePaths = true // Option to remove duplicate paths
   } = options;
+
+  // Track unique paths
+  const uniquePaths = new Map<string, SimplifiedPath>();
 
   try {
     // Read the SVG file
@@ -68,14 +126,34 @@ export async function parseSVGFloorPlan(
         // Determine path type based on style attributes
         const type = determinePathType(style, d);
 
-        if (d && d.trim()) {
-          paths.push({
-            id,
-            d,
-            type,
-            transform,
-            floor: floorNumber
+        // Skip paths that are too short (likely decoration or artifacts)
+        if (!d || d.trim().length < minPathLength) {
+          return;
+        }
+
+        // Create path object
+        const path: SimplifiedPath = {
+          id,
+          d: d.trim(),
+          type,
+          transform,
+          floor: floorNumber
+        };
+
+        if (deduplicatePaths) {
+          // Create a key for path deduplication
+          const pathKey = createPathKey({
+            d: d.trim(),
+            style,
+            transform
           });
+
+          // Only add if we haven't seen this exact path before
+          if (!uniquePaths.has(pathKey)) {
+            uniquePaths.set(pathKey, path);
+          }
+        } else {
+          paths.push(path);
         }
       }
 
@@ -88,14 +166,38 @@ export async function parseSVGFloorPlan(
     // Start extraction from root
     extractPaths(parsedSVG);
 
-    logger.info('SVG parsing complete', {
-      floor: floorNumber,
-      totalPaths: paths.length,
-      wallPaths: paths.filter(p => p.type === 'wall').length,
-      otherPaths: paths.filter(p => p.type === 'other').length
+    // Get final path list
+    const finalPaths = deduplicatePaths ? Array.from(uniquePaths.values()) : paths;
+
+    // Filter out paths that are completely contained within others
+    const filteredPaths = finalPaths.filter((path1, index) => {
+      // Skip checking if this is a wall
+      if (path1.type === 'wall') return true;
+
+      // Check if this path is contained within any other path
+      const isContained = finalPaths.some((path2, j) => {
+        if (index === j) return false;
+        
+        // Simple bounding box check using path commands
+        const bounds1 = getPathBounds(path1.d);
+        const bounds2 = getPathBounds(path2.d);
+        
+        return bounds1 && bounds2 && isPathContained(bounds1, bounds2);
+      });
+
+      return !isContained;
     });
 
-    return paths;
+    logger.info('SVG parsing complete', {
+      floor: floorNumber,
+      originalPaths: paths.length,
+      uniquePaths: finalPaths.length,
+      filteredPaths: filteredPaths.length,
+      wallPaths: filteredPaths.filter(p => p.type === 'wall').length,
+      otherPaths: filteredPaths.filter(p => p.type === 'other').length
+    });
+
+    return filteredPaths;
 
   } catch (error) {
     logger.error('Error parsing SVG floor plan:', {
