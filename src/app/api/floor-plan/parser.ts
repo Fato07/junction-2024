@@ -74,72 +74,71 @@ class SVGPathExtractor extends Transform {
   }
 
   private determinePathType(pathElement: string): 'wall' | 'window' | 'door' | 'other' {
-    // Extract the style attribute
+    // Extract all relevant attributes
     const styleMatch = pathElement.match(/style="([^"]*)"/);
     const classMatch = pathElement.match(/class="([^"]*)"/);
     
-    // Debug logging
-    console.debug('Analyzing path:', {
-        style: styleMatch?.[1],
-        class: classMatch?.[1],
-        fullElement: pathElement
-    });
-
-    // If no style attribute, check for direct attributes
-    const strokeWidth = pathElement.match(/stroke-width="([^"]*)"/)?.[1];
-    const fill = pathElement.match(/fill="([^"]*)"/)?.[1];
-    const stroke = pathElement.match(/stroke="([^"]*)"/)?.[1];
-
-    // Common wall characteristics
-    const isWall = (style: string | undefined, directStrokeWidth?: string, directFill?: string, directStroke?: string): boolean => {
-        if (!style && !directStrokeWidth) return false;
-
-        // Check both style attribute and direct attributes
-        const hasValidStrokeWidth = (
-            (style?.includes('stroke-width:0.1') || style?.includes('stroke-width:0.2')) ||
-            (directStrokeWidth && (directStrokeWidth === '0.1' || directStrokeWidth === '0.2'))
-        );
-
-        const hasValidFill = (
-            style?.includes('fill:none') ||
-            directFill === 'none'
-        );
-
-        const hasValidStroke = (
-            style?.includes('stroke:#000') ||
-            style?.includes('stroke:#000000') ||
-            directStroke === '#000' ||
-            directStroke === '#000000' ||
-            directStroke === 'black'
-        );
-
-        // Additional wall indicators
-        const hasWallClass = classMatch?.[1]?.toLowerCase().includes('wall');
-        const hasWallId = pathElement.includes('wall') || pathElement.includes('Wall');
-
-        // Consider it a wall if it matches most wall characteristics
-        return (hasValidStrokeWidth || hasValidStroke) && 
-               (hasValidFill || hasWallClass || hasWallId);
-    };
-
-    if (styleMatch || strokeWidth || fill || stroke) {
-        const style = styleMatch?.[1];
-        if (isWall(style, strokeWidth, fill, stroke)) {
-            return 'wall';
-        }
-    }
-
-    // If no clear wall characteristics are found, check for specific patterns
-    if (pathElement.includes('wall') || 
-        pathElement.includes('Wall') || 
-        (classMatch && classMatch[1].toLowerCase().includes('wall'))) {
-        return 'wall';
-    }
-
-    // Log paths that weren't identified as walls
-    console.debug('Path not identified as wall:', pathElement);
+    // Extract path data to analyze the shape
+    const dMatch = pathElement.match(/d="([^"]*)"/);
+    const pathData = dMatch?.[1];
     
-    return 'other';
+    // If no style or path data, it's not a wall
+    if (!styleMatch && !pathData) return 'other';
+    
+    const style = styleMatch?.[1] || '';
+    
+    // Check for wall-like characteristics in the style
+    const hasWallStyle = (
+        style.includes('stroke:#000000') &&
+        style.includes('stroke-width:0.1') &&
+        style.includes('fill:none') &&
+        style.includes('stroke-opacity:1')
+    );
+
+    // Check path data characteristics
+    const isLongEnoughPath = pathData && (
+        pathData.length > 10 || // Arbitrary minimum length
+        pathData.includes('L') || // Has line segments
+        pathData.includes('H') || // Has horizontal lines
+        pathData.includes('V')    // Has vertical lines
+    );
+
+    // Check transform matrix for scaling
+    const transformMatch = pathElement.match(/matrix\(([\d.-]+,?)+\)/);
+    const hasValidTransform = transformMatch && transformMatch[0].includes('3.7795333');
+
+    // Additional checks for specific wall patterns
+    const hasWallIndicators = (
+        pathElement.includes('wall') ||
+        pathElement.includes('Wall') ||
+        (classMatch && classMatch[1]?.toLowerCase().includes('wall')) ||
+        style.includes('stroke-linecap:round') ||
+        style.includes('stroke-linejoin:round') ||
+        style.includes('stroke-miterlimit:10')
+    );
+
+    // Score-based system for wall detection
+    let wallScore = 0;
+    if (hasWallStyle) wallScore += 2;
+    if (isLongEnoughPath) wallScore += 1;
+    if (hasValidTransform) wallScore += 1;
+    if (hasWallIndicators) wallScore += 1;
+
+    // Debug logging for borderline cases
+    if (wallScore > 0) {
+        console.debug('Wall detection score:', {
+            path: pathData?.substring(0, 50) + '...',
+            score: wallScore,
+            style: style.substring(0, 50) + '...',
+            hasWallStyle,
+            isLongEnoughPath,
+            hasValidTransform,
+            hasWallIndicators
+        });
+    }
+
+    // Consider it a wall if it scores high enough
+    return wallScore >= 3 ? 'wall' : 'other';
   }
 
   getPathCount(): number {
