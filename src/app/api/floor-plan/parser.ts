@@ -138,9 +138,9 @@ export async function streamParseFloorPlan(
       const viewBoxMatch = svgOpeningTag[0].match(/viewBox="([^"]*)/);
 
       dimensions = {
-        width: widthMatch ? parseFloat(widthMatch[1]) : 0,
-        height: heightMatch ? parseFloat(heightMatch[1]) : 0,
-        viewBox: viewBoxMatch ? viewBoxMatch[1] : '',
+        width: widthMatch ? Math.round(parseFloat(widthMatch[1])) : 0,
+        height: heightMatch ? Math.round(parseFloat(heightMatch[1])) : 0,
+        viewBox: viewBoxMatch ? viewBoxMatch[1].trim() : '0 0 100 100',
       };
 
       // Now process the paths

@@ -10,7 +10,6 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
   floorNumber
 }) => {
   const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState(0);
   const [paths, setPaths] = useState<SimplifiedPath[]>([]);
   const [metadata, setMetadata] = useState<FloorPlanMetadata | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -51,10 +50,15 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
       {!loading && metadata && (
         <svg
           ref={svgRef}
-          width={metadata.dimensions.width}
-          height={metadata.dimensions.height}
+          width="100%"
+          height="100%"
           viewBox={metadata.dimensions.viewBox}
-          style={{ maxWidth: '100%', height: 'auto' }}
+          style={{ 
+            maxWidth: `${metadata.dimensions.width}px`,
+            maxHeight: `${metadata.dimensions.height}px`,
+            width: '100%',
+            height: 'auto'
+          }}
         >
           {paths.map((path) => (
             <path
