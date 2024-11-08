@@ -48,9 +48,19 @@ class SVGPathExtractor extends Transform {
   }
 
   private determinePathType(pathElement: string): 'wall' | 'window' | 'door' | 'other' {
-    if (pathElement.includes('stroke-width="0.1"')) {
+    // Extract the style attribute
+    const styleMatch = pathElement.match(/style="([^"]*)"/);
+    if (!styleMatch) return 'other';
+    
+    const style = styleMatch[1];
+    
+    // Check for wall characteristics
+    if (style.includes('stroke-width:0.1') && 
+        style.includes('fill:none') && 
+        style.includes('stroke:#000000')) {
       return 'wall';
     }
+    
     return 'other';
   }
 
