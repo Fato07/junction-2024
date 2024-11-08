@@ -2,6 +2,7 @@ import { createReadStream, existsSync, statSync } from 'fs';
 import { Parser } from 'xml2js';
 import { Transform } from 'stream';
 import path from 'path';
+import { logger } from '@/utils/logger';
 import { SimplifiedPath, FloorPlanMetadata } from '@/types/floorPlan';
 import { LRUCache } from 'lru-cache';
 
@@ -22,6 +23,20 @@ class OptimizedSVGPathExtractor extends Transform {
   private batch: SimplifiedPath[] = [];
   private processedBytes = 0;
   private totalBytes: number;
+  private startTime: number;
+  private readonly MAX_PATHS = 10000;
+
+  constructor(
+    private pathCallback: (paths: SimplifiedPath[]) => void,
+    private progressCallback?: (progress: number) => void,
+    floorNumber: number,
+    totalBytes: number
+  ) {
+    super({ objectMode: true });
+    this.floorNumber = floorNumber;
+    this.totalBytes = totalBytes;
+    this.startTime = Date.now();
+  }
 
   constructor(
     private pathCallback: (paths: SimplifiedPath[]) => void,
@@ -114,7 +129,23 @@ class OptimizedSVGPathExtractor extends Transform {
       transform,
       floor: this.floorNumber
     };
-  }
+    if (this.pathCount >= this.MAX_PATHS) {
+      logger.warn(`Reached maximum path limit for floor ${this.floorNumber}`, {
+        maxPaths: this.MAX_PATHS,
+        floor: this.floorNumber
+      });
+      return null;
+    }
+
+    id = this.generateUniqueId(id || `path_${this.pathCount}`);
+    
+    return {
+      id,
+      d,
+      type: this.determinePathType(pathElement),
+      transform,
+      floor: this.floorNumber
+    };
   }
 
   private determinePathType(pathElement: string): 'wall' | 'window' | 'door' | 'other' {
@@ -277,12 +308,14 @@ export async function streamParseFloorPlan(
             paths: collectedPaths
           };
 
+          const duration = Date.now() - pathExtractor.startTime;
           cache.set(cacheKey, result);
-          console.log('Floor plan parsing complete:', {
+          logger.info('Floor plan parsing complete:', {
             floor: floorNumber,
             totalPaths: collectedPaths.length,
             wallPaths: collectedPaths.filter(p => p.type === 'wall').length,
             otherPaths: collectedPaths.filter(p => p.type === 'other').length,
+            duration: `${duration}ms`
           });
 
           resolve(result);

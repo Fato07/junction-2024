@@ -36,7 +36,10 @@ export async function GET(
       paths: floorPaths
     });
   } catch (error) {
-    console.error('Error processing floor plan:', error);
+    logger.error('Error processing floor plan:', { 
+      floor: params.floor, 
+      error: error instanceof Error ? error.message : String(error)
+    });
     return NextResponse.json(
       { error: 'Failed to process floor plan' },
       { status: 500 }
