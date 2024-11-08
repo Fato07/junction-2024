@@ -75,7 +75,6 @@ class SVGPathExtractor extends Transform {
 
   private determinePathType(pathElement: string): 'wall' | 'window' | 'door' | 'other' {
     const styleMatch = pathElement.match(/style="([^"]*)"/);
-    const classMatch = pathElement.match(/class="([^"]*)"/);
     const dMatch = pathElement.match(/d="([^"]*)"/);
     const pathData = dMatch?.[1];
     
@@ -83,66 +82,63 @@ class SVGPathExtractor extends Transform {
     
     const style = styleMatch[1];
 
-    // Function to calculate path length considering scale
-    const calculatePathLength = (d: string): number => {
-        const coordinates = d.match(/-?\d+\.?\d*/g);
-        if (!coordinates) return 0;
+    // Function to analyze path commands
+    const analyzePathCommands = (d: string) => {
+        const commands = d.match(/[MmHhVvLl][-\d.,\s]*/g) || [];
+        const commandTypes = commands.map(cmd => cmd[0].toUpperCase());
         
-        let length = 0;
-        for (let i = 0; i < coordinates.length - 2; i += 2) {
-            const x1 = parseFloat(coordinates[i]);
-            const y1 = parseFloat(coordinates[i + 1]);
-            const x2 = parseFloat(coordinates[i + 2]);
-            const y2 = parseFloat(coordinates[i + 3]);
-            length += Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-        }
-        return length * 3.7795333; // Apply scale factor
+        // Check for rectangular pattern (M followed by alternating V and H commands)
+        const hasRectangularPattern = (
+            commandTypes[0] === 'M' && // Starts with Move
+            commandTypes.length >= 4 && // Has enough commands to form a shape
+            commandTypes.some((cmd, i) => 
+                (cmd === 'V' && commandTypes[i + 1] === 'H') || 
+                (cmd === 'H' && commandTypes[i + 1] === 'V')
+            )
+        );
+
+        // Count vertical and horizontal lines
+        const verticalLines = commandTypes.filter(cmd => cmd === 'V').length;
+        const horizontalLines = commandTypes.filter(cmd => cmd === 'H').length;
+
+        return {
+            hasRectangularPattern,
+            verticalLines,
+            horizontalLines,
+            commandCount: commands.length,
+            commands: commandTypes.join(',')
+        };
     };
 
-    // More lenient wall style detection
+    // More specific wall style detection
     const hasWallStyle = (
         style.includes('stroke:#000000') &&
         style.includes('stroke-width:0.1') &&
         style.includes('fill:none')
     );
 
-    // Calculate path characteristics
-    const pathLength = calculatePathLength(pathData);
-    const isSignificantPath = pathLength > 10; // Increased threshold after scaling
-
-    // Analyze path commands for straightness
-    const commands = pathData.match(/[A-Za-z][^A-Za-z]*/g) || [];
-    const isStraightPath = commands.some(cmd => {
-        const type = cmd[0];
-        return type === 'H' || type === 'V' || type === 'L';
-    });
-
-    // Check for consecutive line segments
-    const hasConsecutiveLines = commands.length > 1;
-
+    const pathAnalysis = analyzePathCommands(pathData);
+    
+    // Scoring system for wall detection
     let wallScore = 0;
     if (hasWallStyle) wallScore += 2;
-    if (isSignificantPath) wallScore += 2;
-    if (isStraightPath) wallScore += 1;
-    if (hasConsecutiveLines) wallScore += 1;
-    
+    if (pathAnalysis.hasRectangularPattern) wallScore += 3;
+    if (pathAnalysis.verticalLines >= 1 && pathAnalysis.horizontalLines >= 1) wallScore += 2;
+    if (pathAnalysis.commandCount >= 4) wallScore += 1;
+
     // Debug logging with more details
     if (wallScore > 0) {
         console.debug('Wall detection analysis:', {
             path: pathData,
-            pathLength,
-            commands: commands.map(cmd => cmd[0]).join(','),
+            pathAnalysis,
             score: wallScore,
             style: style.substring(0, 50) + '...',
-            hasWallStyle,
-            isSignificantPath,
-            isStraightPath,
-            hasConsecutiveLines
+            hasWallStyle
         });
     }
 
-    // Adjusted threshold
-    return wallScore >= 3 ? 'wall' : 'other';
+    // Higher threshold for wall detection
+    return wallScore >= 5 ? 'wall' : 'other';
   }
 
   getPathCount(): number {
