@@ -65,6 +65,7 @@ export async function streamParseFloorPlan(
 ): Promise<FloorPlanMetadata> {
   return new Promise((resolve, reject) => {
     const filePath = path.join(process.cwd(), 'public', 'assets', 'floor_plans', `floor_${floorNumber}.svg`);
+    console.log('Attempting to read SVG from:', filePath);
     
     let dimensions = {
       width: 0,

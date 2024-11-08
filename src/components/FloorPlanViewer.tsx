@@ -19,6 +19,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
 
   useEffect(() => {
     const loadFloorPlan = async () => {
+      console.log('Starting to load floor plan:', floorNumber);
       setLoading(true);
       const collectedPaths: SimplifiedPath[] = [];
 
@@ -26,13 +27,19 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
         const meta = await loadFloorPlanPaths(floorNumber, {
           onPath: (path) => {
             collectedPaths.push(path);
+            if (collectedPaths.length <= 5) {
+              console.log('Sample path loaded:', path.id);
+            }
           },
           onProgress: (progress) => {
+            console.log('Loading progress:', progress);
             setProgress(progress);
           },
           filter: (path) => path.type === 'wall' // Example filter
         });
 
+        console.log('Metadata loaded:', meta);
+        console.log('Total paths collected:', collectedPaths.length);
         setPaths(collectedPaths);
         setMetadata(meta);
         onLoad?.(meta);
