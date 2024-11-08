@@ -16,7 +16,9 @@ export async function GET(
   { params }: RouteParams
 ) {
   try {
-    const floorNumber = parseInt(params.floor);
+    // Ensure params is properly awaited
+    const { floor } = params;
+    const floorNumber = parseInt(floor);
     const paths: any[] = [];
 
     const metadata = await streamParseFloorPlan(
