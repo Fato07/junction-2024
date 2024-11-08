@@ -59,6 +59,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
         <>
           <div className={styles.floorPlanControls}>
             <select 
+              className={styles.floorSelect}
               value={currentFloor} 
               onChange={(e) => setCurrentFloor(parseInt(e.target.value))}
             >

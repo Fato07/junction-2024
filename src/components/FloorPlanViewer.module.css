@@ -38,7 +38,7 @@
   background: #f0f0f0;
 }
 
-select {
+.floorSelect {
   padding: 4px;
   margin-bottom: 10px;
   border-radius: 4px;
