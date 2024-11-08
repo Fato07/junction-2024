@@ -1,4 +1,4 @@
-import { createReadStream } from 'fs';
+import { createReadStream, existsSync } from 'fs';
 import { Parser } from 'xml2js';
 import { Transform } from 'stream';
 import path from 'path';
@@ -66,6 +66,13 @@ export async function streamParseFloorPlan(
   return new Promise((resolve, reject) => {
     const filePath = path.join(process.cwd(), 'public', 'assets', 'floor_plans', `floor_${floorNumber}.svg`);
     console.log('Attempting to read SVG from:', filePath);
+    
+    // Check if file exists
+    if (!existsSync(filePath)) {
+      console.error(`SVG file not found at path: ${filePath}`);
+      reject(new Error(`SVG file not found at path: ${filePath}`));
+      return;
+    }
     
     let dimensions = {
       width: 0,
