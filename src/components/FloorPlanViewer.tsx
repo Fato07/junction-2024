@@ -13,6 +13,8 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
   const [loading, setLoading] = useState(true);
   const [paths, setPaths] = useState<SimplifiedPath[]>([]);
   const [metadata, setMetadata] = useState<FloorPlanMetadata | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -54,19 +56,27 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
       {!loading && !metadata && <div>Error loading floor plan</div>}
       {!loading && metadata && (
         <>
-          <div style={{ padding: '10px', fontSize: '12px' }}>
+          <div className={styles.floorPlanControls}>
             <select 
               value={currentFloor} 
               onChange={(e) => setCurrentFloor(parseInt(e.target.value))}
-              style={{ marginBottom: '10px' }}
             >
               {[1,2,3,4,5,6,7].map(floor => (
                 <option key={floor} value={floor}>Floor {floor}</option>
               ))}
             </select>
+            <div className={styles.controlGroup}>
+              <button onClick={() => setZoom(z => z * 1.2)}>Zoom In</button>
+              <button onClick={() => setZoom(z => z / 1.2)}>Zoom Out</button>
+              <button onClick={() => {
+                setZoom(1);
+                setPosition({ x: 0, y: 0 });
+              }}>Reset View</button>
+            </div>
             <div>Dimensions: {metadata.dimensions.width} x {metadata.dimensions.height}</div>
             <div>Scale: {metadata.scale}</div>
             <div>Paths: {paths.length}</div>
+            <div>Zoom: {(zoom * 100).toFixed(0)}%</div>
           </div>
           <div style={{ 
             width: '100%',
@@ -92,8 +102,13 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
               }}
               preserveAspectRatio="xMidYMid meet"
             >
-              <g transform={`scale(${metadata.scale})`}>
-                <g transform="translate(0.05, 0.05)">
+              <defs>
+                <pattern id="grid" width="1" height="1" patternUnits="userSpaceOnUse">
+                  <path d="M 1 0 L 0 0 0 1" fill="none" stroke="#ddd" strokeWidth="0.02"/>
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+              <g transform={`translate(${position.x} ${position.y}) scale(${zoom * metadata.scale})`}>
                   {paths.map((path) => (
                     <path
                       key={path.id}
