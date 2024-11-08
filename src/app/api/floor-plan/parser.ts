@@ -116,34 +116,18 @@ export async function streamParseFloorPlan(
       // Now process the paths
       const pathExtractor = new SVGPathExtractor(pathCallback);
       const readStream = createReadStream(filePath);
-        if (err) {
-          reject(err);
-          return;
-        }
 
-        if (result.svg.$) {
-          dimensions = {
-            width: Number(result.svg.$.width),
-            height: Number(result.svg.$.height),
-            viewBox: result.svg.$.viewBox,
-          };
-        }
-
-        const pathExtractor = new SVGPathExtractor(pathCallback);
-        const readStream = createReadStream(filePath);
-
-        readStream
-          .pipe(pathExtractor)
-          .on('finish', () => {
-            resolve({
-              floor: floorNumber,
-              dimensions,
-              scale,
-              pathCount: pathExtractor.getPathCount(),
-            });
-          })
-          .on('error', reject);
-      });
+      readStream
+        .pipe(pathExtractor)
+        .on('finish', () => {
+          resolve({
+            floor: floorNumber,
+            dimensions,
+            scale,
+            pathCount: pathExtractor.getPathCount(),
+          });
+        })
+        .on('error', reject);
     });
   });
 }
