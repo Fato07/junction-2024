@@ -1,21 +1,44 @@
-import { createReadStream, existsSync } from 'fs';
+import { createReadStream, existsSync, statSync } from 'fs';
 import { Parser } from 'xml2js';
 import { Transform } from 'stream';
 import path from 'path';
 import { SimplifiedPath, FloorPlanMetadata } from '@/types/floorPlan';
+import { LRUCache } from 'lru-cache';
 
-class SVGPathExtractor extends Transform {
+// Cache configuration
+const cache = new LRUCache<string, ParsedFloorPlan>({
+  max: 10, // Maximum number of floor plans to cache
+  ttl: 1000 * 60 * 60, // Cache for 1 hour
+});
+
+// Batch size for processing paths
+const BATCH_SIZE = 100;
+
+class OptimizedSVGPathExtractor extends Transform {
   private buffer = '';
   private pathCount = 0;
   private seenIds = new Set<string>();
   private floorNumber: number;
+  private batch: SimplifiedPath[] = [];
+  private processedBytes = 0;
+  private totalBytes: number;
 
   constructor(
-    private callback: (path: SimplifiedPath) => void,
-    floorNumber: number
+    private pathCallback: (paths: SimplifiedPath[]) => void,
+    private progressCallback?: (progress: number) => void,
+    floorNumber: number,
+    totalBytes: number
   ) {
     super({ objectMode: true });
     this.floorNumber = floorNumber;
+    this.totalBytes = totalBytes;
+  }
+
+  private processBatch() {
+    if (this.batch.length > 0) {
+      this.pathCallback(this.batch);
+      this.batch = [];
+    }
   }
 
   private generateUniqueId(baseId: string): string {
@@ -32,45 +55,66 @@ class SVGPathExtractor extends Transform {
   }
 
   _transform(chunk: any, encoding: string, callback: Function) {
-    this.buffer += chunk.toString();
-    
-    const pathRegex = /<path[^>]* d="[^"]*"[^>]*>/g;
-    let match;
-    
-    while ((match = pathRegex.exec(this.buffer)) !== null) {
-      const pathElement = match[0];
+    try {
+      this.processedBytes += chunk.length;
+      this.buffer += chunk.toString();
       
-      let id = (pathElement.match(/id="([^"]*)"/) || [])[1];
-      const d = (pathElement.match(/d="([^"]*)"/) || [])[1];
-      const transform = (pathElement.match(/transform="([^"]*)"/) || [])[1];
-      
-      // Validate path data
-      if (!d || !d.trim().match(/^[Mm]/)) {
-        continue; // Skip invalid paths
+      // Report progress
+      if (this.progressCallback) {
+        const progress = (this.processedBytes / this.totalBytes) * 100;
+        this.progressCallback(Math.round(progress));
       }
 
-      // Ensure unique IDs
-      if (id && d) {
-        id = this.generateUniqueId(id);
-        const type = this.determinePathType(pathElement);
+      const pathRegex = /<path[^>]* d="[^"]*"[^>]*>/g;
+      let match;
+      
+      while ((match = pathRegex.exec(this.buffer)) !== null) {
+        const pathElement = match[0];
+        const path = this.extractPath(pathElement);
         
-        this.pathCount++;
-        this.callback({
-          id,
-          d,
-          type,
-          transform,
-          floor: this.floorNumber
-        });
+        if (path) {
+          this.batch.push(path);
+          this.pathCount++;
+
+          if (this.batch.length >= BATCH_SIZE) {
+            this.processBatch();
+          }
+        }
       }
-    }
 
-    const lastTagIndex = this.buffer.lastIndexOf('<path');
-    if (lastTagIndex !== -1) {
-      this.buffer = this.buffer.substring(lastTagIndex);
-    }
+      const lastTagIndex = this.buffer.lastIndexOf('<path');
+      if (lastTagIndex !== -1) {
+        this.buffer = this.buffer.substring(lastTagIndex);
+      }
 
+      callback();
+    } catch (error) {
+      callback(error);
+    }
+  }
+
+  _flush(callback: Function) {
+    this.processBatch();
     callback();
+  }
+
+  private extractPath(pathElement: string): SimplifiedPath | null {
+    let id = (pathElement.match(/id="([^"]*)"/) || [])[1];
+    const d = (pathElement.match(/d="([^"]*)"/) || [])[1];
+    const transform = (pathElement.match(/transform="([^"]*)"/) || [])[1];
+
+    if (!d || !d.trim()) return null;
+
+    id = this.generateUniqueId(id || `path_${this.pathCount}`);
+    
+    return {
+      id,
+      d,
+      type: this.determinePathType(pathElement),
+      transform,
+      floor: this.floorNumber
+    };
+  }
   }
 
   private determinePathType(pathElement: string): 'wall' | 'window' | 'door' | 'other' {
@@ -156,61 +200,67 @@ export async function streamParseFloorPlan(
   pathCallback: (path: SimplifiedPath) => void,
   progressCallback?: (progress: number) => void
 ): Promise<ParsedFloorPlan> {
+  const cacheKey = `floor_${floorNumber}`;
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    console.log(`Using cached floor plan for floor ${floorNumber}`);
+    return cached;
+  }
+
   return new Promise((resolve, reject) => {
     const filePath = path.join(process.cwd(), 'public', 'assets', 'floor_plans', `floor_${floorNumber}.svg`);
-    console.log('Attempting to read SVG from:', filePath);
     
     if (!existsSync(filePath)) {
-      console.error(`SVG file not found at path: ${filePath}`);
-      reject(new Error(`SVG file not found at path: ${filePath}`));
+      reject(new Error(`Floor plan not found: floor_${floorNumber}.svg`));
       return;
     }
-    
+
+    const stats = statSync(filePath);
+    const fileSize = stats.size;
+
     let dimensions = {
       width: 0,
       height: 0,
       viewBox: '',
     };
-    let scale = 3.7795333;
 
-    const parser = new Parser({
-      trim: true,
-      explicitArray: false,
-    });
-
-    // Read the entire file for header parsing
-    const fileContent = createReadStream(filePath);
-    let svgData = '';
-
-    fileContent.on('data', chunk => {
-      svgData += chunk;
-    });
-
-    fileContent.on('end', () => {
-      // Find the SVG opening tag and extract attributes
-      const svgOpeningTag = svgData.match(/<svg[^>]*>/);
-      if (!svgOpeningTag) {
-        reject(new Error('Invalid SVG file: No opening svg tag found'));
-        return;
-      }
-
-      // Parse dimensions from the opening tag
-      const widthMatch = svgOpeningTag[0].match(/width="([^"]*)/);
-      const heightMatch = svgOpeningTag[0].match(/height="([^"]*)/);
-      const viewBoxMatch = svgOpeningTag[0].match(/viewBox="([^"]*)/);
-
-      dimensions = {
-        width: widthMatch ? Math.round(parseFloat(widthMatch[1])) : 0,
-        height: heightMatch ? Math.round(parseFloat(heightMatch[1])) : 0,
-        viewBox: viewBoxMatch ? viewBoxMatch[1].trim() : '0 0 100 100',
-      };
-
-      // Now process the paths
-      const collectedPaths: SimplifiedPath[] = [];
-      const pathExtractor = new SVGPathExtractor((path) => {
+    const collectedPaths: SimplifiedPath[] = [];
+    const batchCallback = (paths: SimplifiedPath[]) => {
+      paths.forEach(path => {
         collectedPaths.push(path);
         pathCallback(path);
-      }, floorNumber);
+      });
+    };
+
+    // First pass: extract metadata
+    const headerStream = createReadStream(filePath, { end: 1000 }); // Read first 1KB for metadata
+    let headerData = '';
+
+    headerStream.on('data', chunk => {
+      headerData += chunk;
+      const svgMatch = headerData.match(/<svg[^>]*>/);
+      if (svgMatch) {
+        const widthMatch = svgMatch[0].match(/width="([^"]*)/);
+        const heightMatch = svgMatch[0].match(/height="([^"]*)/);
+        const viewBoxMatch = svgMatch[0].match(/viewBox="([^"]*)/);
+
+        dimensions = {
+          width: widthMatch ? Math.round(parseFloat(widthMatch[1])) : 0,
+          height: heightMatch ? Math.round(parseFloat(heightMatch[1])) : 0,
+          viewBox: viewBoxMatch ? viewBoxMatch[1].trim() : '0 0 100 100',
+        };
+        headerStream.destroy();
+      }
+    });
+
+    headerStream.on('end', () => {
+      // Second pass: process paths
+      const pathExtractor = new OptimizedSVGPathExtractor(
+        batchCallback,
+        progressCallback,
+        floorNumber,
+        fileSize
+      );
 
       const readStream = createReadStream(filePath);
 
@@ -221,13 +271,13 @@ export async function streamParseFloorPlan(
             metadata: {
               floor: floorNumber,
               dimensions,
-              scale,
+              scale: 3.7795333,
               pathCount: pathExtractor.getPathCount(),
             },
             paths: collectedPaths
           };
 
-          // Log summary of parsed paths
+          cache.set(cacheKey, result);
           console.log('Floor plan parsing complete:', {
             floor: floorNumber,
             totalPaths: collectedPaths.length,
