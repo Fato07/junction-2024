@@ -8,6 +8,15 @@ class SVGPathExtractor extends Transform {
   private buffer = '';
   private pathCount = 0;
   private seenIds = new Set<string>();
+  private floorNumber: number;
+
+  constructor(
+    private callback: (path: SimplifiedPath) => void,
+    floorNumber: number
+  ) {
+    super({ objectMode: true });
+    this.floorNumber = floorNumber;
+  }
 
   private generateUniqueId(baseId: string): string {
     let uniqueId = baseId;
